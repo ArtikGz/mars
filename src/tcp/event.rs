@@ -1,4 +1,6 @@
-#[derive(Debug, Clone)]
+use super::packet::S2c;
+
+#[derive(Debug)]
 pub enum Event {
-    BroadcastEvent { bytes: Vec<u8> }
+    BroadcastEvent { packet: S2c },
 }

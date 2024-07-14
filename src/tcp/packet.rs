@@ -85,16 +85,19 @@ impl C2s {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Version {
     pub name: String,
     pub protocol: u32,
 }
 
+#[derive(Debug, Clone)]
 pub struct Players {
     pub online: u32,
     pub max: u32,
 }
 
+#[derive(Debug, Clone)]
 pub enum S2c {
     StatusResponse {
         text: String,

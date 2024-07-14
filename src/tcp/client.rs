@@ -29,19 +29,6 @@ macro_rules! wtchan {
     };
 }
 
-type ClientData = Arc<Mutex<Client>>;
-
-pub struct Client {
-    pub id: u32,
-    pub writer: OwnedWriteHalf,
-}
-
-impl Client {
-    pub fn new(id: u32, writer: OwnedWriteHalf) -> Self {
-        Client { id, writer }
-    }
-}
-
 pub async fn handle_incoming(
     receiver: &mut OwnedReadHalf,
     chan_writer: &Sender<S2c>,
@@ -56,7 +43,7 @@ pub async fn handle_incoming(
 }
 
 pub async fn handle_outgoing(
-    client: &mut ClientData,
+    connection_writer: &mut OwnedWriteHalf,
     chan_reader: &mut Receiver<S2c>,
 ) -> io::Result<()> {
     while let Some(packet) = chan_reader.recv().await {
@@ -64,9 +51,8 @@ pub async fn handle_outgoing(
         packet.write_to(&mut buffer).await?;
 
         log::debug!("Writing {} bytes to the client.", buffer.len());
-        let mut client = client.lock().await;
-        client.writer.write_var_int(buffer.len() as u32).await?;
-        client.writer.write(&*buffer).await?;
+        connection_writer.write_var_int(buffer.len() as u32).await?;
+        connection_writer.write(&*buffer).await?;
     }
 
     Ok(())
