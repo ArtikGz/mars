@@ -1,0 +1,8 @@
+[package]
+name = "mars"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.38.0", features = ["full"] }
+uuid = { version = "1.9.1", features = ["v3", "fast-rng"] }
