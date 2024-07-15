@@ -35,7 +35,7 @@ pub async fn start_server(host: &'_ str, port: &'_ str) {
 
     log::info!("Serving at {}:{}", host, port);
 
-    let (event_channel_writer, mut event_channel_reader) = mpsc::channel(16);
+    let (_event_channel_writer, mut event_channel_reader) = mpsc::channel(16);
     tokio::select! {
         _ = event_loop(&mut event_channel_reader) => {}
         _ = serve(listener) => {}

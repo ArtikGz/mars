@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use tcp::server::start_server;
 
 mod blocks;
