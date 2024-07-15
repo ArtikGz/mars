@@ -1,21 +1,12 @@
-use crate::tcp::event::Event;
 use crate::tcp::packet::C2s;
 use crate::tcp::state::State;
-use crate::tcp::{network, packet, AsyncWriteOwnExt, ReadExt, WriteExt};
-use crate::{blocks, log, VarInt};
-use core::time;
-use std::any::Any;
+use crate::tcp::{network, AsyncWriteOwnExt, WriteExt};
+use crate::{log};
 use std::io;
 use std::io::{Read, Write};
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, Mutex};
-use tokio::time::sleep;
-use uuid::Uuid;
 
 use super::packet::{Players, S2c, Version};
 use super::utils;

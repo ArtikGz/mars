@@ -1,11 +1,7 @@
 use crate::VarInt;
 use std::io;
 use std::io::{Read, Write};
-use std::pin::Pin;
-use std::thread::current;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, ReadHalf};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 
 pub mod client;
 mod event;

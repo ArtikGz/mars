@@ -2,7 +2,7 @@ use crate::tcp::{AsyncWriteOwnExt, ReadExt, WriteExt};
 use crate::{log, VarInt};
 use std::io::{self, Write};
 
-use super::state::{self, State};
+use super::state::{State};
 
 #[derive(Debug)]
 pub enum C2s {
@@ -78,7 +78,7 @@ impl C2s {
         }
     }
 
-    fn read_play_state(packet_id: VarInt, mut reader: impl io::Read) -> io::Result<Self> {
+    fn read_play_state(packet_id: VarInt, reader: impl io::Read) -> io::Result<Self> {
         match packet_id {
             _ => Err(io::Error::other("Invalid packet_id for current state")),
         }
