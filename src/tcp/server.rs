@@ -1,19 +1,20 @@
-use crate::log;
 use crate::tcp::client;
 use crate::tcp::event::Event;
 use crate::tcp::packet::S2c;
-use std::collections::{HashMap};
+use crate::{log, measure};
+use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{Mutex};
-use tokio::sync::{mpsc};
+use tokio::sync::Mutex;
 
+type ClientMap = Mutex<HashMap<u32, Sender<Arc<S2c>>>>;
 
-fn get_clients() -> &'static Arc<Mutex<HashMap<u32, Sender<S2c>>>> {
-    static CLIENTS: OnceLock<Arc<Mutex<HashMap<u32, Sender<S2c>>>>> = OnceLock::new();
+fn get_clients() -> &'static ClientMap {
+    static CLIENTS: OnceLock<ClientMap> = OnceLock::new();
 
-    CLIENTS.get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
+    CLIENTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub async fn start_server(host: &'_ str, port: &'_ str) {
@@ -42,7 +43,7 @@ async fn event_loop(event_channel_reader: &mut Receiver<Event>) {
             Event::BroadcastEvent { packet } => {
                 let clients = get_clients().lock().await;
 
-                for (_, client) in clients.clone() {
+                for (_, client) in clients.iter() {
                     client.send(packet.clone()).await.expect("closed channel");
                 }
             }
@@ -67,7 +68,7 @@ async fn serve(listener: TcpListener) {
 
 async fn handle_connection(socket: TcpStream) {
     let (mut connection_reader, mut connection_writer) = socket.into_split();
-    let (message_channel_sender, mut message_channel_reader) = mpsc::channel::<S2c>(16);
+    let (message_channel_sender, mut message_channel_reader) = mpsc::channel::<Arc<S2c>>(16);
 
     let client_id = generate_client_id();
     get_clients()
