@@ -45,6 +45,7 @@ macro_rules! _log_error {
 pub(crate) use _log_debug as debug;
 pub(crate) use _log_error as error;
 pub(crate) use _log_info as info;
+pub(crate) use _log_warn as warn;
 
 fn get_formatted_current_time() -> String {
     let time = time::get_current_time();

@@ -12,11 +12,11 @@ use super::packet::{Players, S2c, Version};
 use super::{utils, AsyncReadOwnExt};
 
 pub async fn handle_incoming(
-    receiver: &mut OwnedReadHalf,
+    reader: &mut OwnedReadHalf,
     chan_writer: &Sender<Arc<S2c>>,
 ) -> io::Result<()> {
     let mut state = State::Shake;
-    let reader = &mut BufReader::new(receiver);
+    let reader = &mut BufReader::new(reader);
 
     loop {
         let packet_len = reader.read_var_int().await?;
@@ -85,11 +85,16 @@ pub async fn handle_packet(
         }
         C2s::LoginStart { name, uuid } => {
             let uuid = uuid.unwrap_or(utils::generate_offline_uuid(name.as_str()));
-            let response = S2c::LoginSuccess { name, uuid };
 
+            let response = S2c::LoginSuccess { name, uuid };
             S2c::send_to(Arc::new(response), chan_writer).await?;
+
+            let response = S2c::LoginPlay {};
+            S2c::send_to(Arc::new(response), chan_writer).await?;
+
             state = State::Play;
         }
+        C2s::Mock => {}
     };
 
     Ok(state)

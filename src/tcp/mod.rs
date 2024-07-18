@@ -59,11 +59,7 @@ pub trait AsyncReadOwnExt: AsyncRead + Unpin {
     }
 
     async fn read_bool(&mut self) -> io::Result<bool> {
-        let mut buffer = [0; 1];
-
-        self.read_exact(&mut buffer).await?;
-
-        Ok(buffer[0] != 0)
+        Ok(self.read_u8().await? != 0)
     }
 
     async fn read_uuid(&mut self) -> io::Result<(bool, Vec<u8>)> {
