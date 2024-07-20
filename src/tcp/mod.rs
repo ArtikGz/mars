@@ -5,6 +5,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 
 pub mod client;
 mod event;
+mod mapper;
 mod packet;
 pub mod server;
 mod state;

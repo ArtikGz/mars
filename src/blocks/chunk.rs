@@ -20,11 +20,11 @@ impl From<block::BlockPos> for ChunkPos {
 
 pub struct Chunk {
     pub position: ChunkPos,
-    pub sections: [section::ChunkSection; 24],
+    pub sections: Vec<section::ChunkSection>,
 }
 
 impl Chunk {
-    pub fn get_block(&self, pos: block::BlockPos) -> Option<&Block> {
+    pub fn get_block(&self, pos: block::BlockPos) -> Option<&'static Block> {
         let (x, y, z) = (
             (pos.x & 15) as usize,
             (pos.y & 15) as usize,
@@ -35,6 +35,7 @@ impl Chunk {
             .and_then(|section| section.blocks.get(y))
             .and_then(|rest| rest.get(z))
             .and_then(|rest| rest.get(x))
+            .and_then(|&rest| Some(rest))
     }
 
     pub fn get_section(&self, pos: block::BlockPos) -> Option<&section::ChunkSection> {
@@ -49,7 +50,7 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
         block::DIORITE
     };
 
-    let mut sections = [section::ChunkSection::default(); 24];
+    let mut sections = vec![section::ChunkSection::default(); 24];
     sections[0] = section::generate_section(block);
 
     Chunk {

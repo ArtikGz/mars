@@ -2,7 +2,8 @@ use tokio::io::Take;
 use tokio::sync::mpsc::Sender;
 
 use crate::tcp::AsyncWriteOwnExt;
-use crate::{log, Position, VarInt};
+use crate::{log, nbt, Position, VarInt};
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::sync::Arc;
 
@@ -159,6 +160,14 @@ pub enum S2c {
        },
     */
     LoginPlay {},
+    ChunkDataAndLight {
+        position: NetworkChunkPos,
+        sections: Vec<NetworkChunkSection>,
+    },
+    SetDefaultSpawnPosition {
+        location: Position,
+        angle: f32,
+    },
 }
 
 impl S2c {
@@ -187,6 +196,39 @@ impl S2c {
             Self::LoginPlay { .. } => {
                 writer.write(get_stored_packet_bytes()).await?;
             }
+            Self::ChunkDataAndLight { position, sections } => {
+                writer.write_var_int(0x24).await?;
+                position.write_to(writer).await?;
+
+                let mut heighmap = nbt::NbtCompound::default();
+                heighmap.set_long_array("MOTION_BLOCKING", vec![0; 37]);
+                writer.write_all(&heighmap.pack().unwrap()).await?;
+
+                let mut section_buffer = vec![];
+                for section in sections {
+                    section.write_to(&mut section_buffer).await?;
+                }
+
+                writer.write_var_int(section_buffer.len() as VarInt).await?;
+                writer.write_all(&mut section_buffer).await?;
+
+                writer.write_var_int(0).await?;
+                writer.write_u8(1).await?;
+
+                writer.write_var_int(0).await?;
+                writer.write_var_int(0).await?;
+                writer.write_var_int(0).await?;
+                writer.write_var_int(0).await?;
+
+                writer.write_var_int(0).await?;
+                writer.write_var_int(0).await?;
+            }
+            Self::SetDefaultSpawnPosition { location, angle } => {
+                writer.write_var_int(0x50).await?;
+                location.write_to(writer).await?;
+
+                writer.write_f32(*angle).await?;
+            }
         }
 
         Ok(())
@@ -213,4 +255,71 @@ fn get_stored_packet_bytes() -> &'static [u8] {
     let bytes = include_bytes!("../../src/files/fullLoginPacket.bin");
 
     bytes
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkChunkPos {
+    pub x: i32,
+    pub z: i32,
+}
+
+impl NetworkChunkPos {
+    pub async fn write_to(&self, writer: &mut impl AsyncWriteOwnExt) -> io::Result<()> {
+        writer.write_i32(self.x).await?;
+        writer.write_i32(self.z).await?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkChunkSection {
+    pub non_air_blocks: i16,
+    pub block_states: PalettedContainer,
+    pub biomes: PalettedContainer,
+}
+
+impl NetworkChunkSection {
+    pub async fn write_to(&self, writer: &mut impl AsyncWriteOwnExt) -> io::Result<()> {
+        writer.write_i16(self.non_air_blocks).await?;
+        self.block_states.write_to(writer).await?;
+        self.biomes.write_to(writer).await?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PalettedContainer {
+    pub bits_per_entry: u8,
+    pub palette: HashSet<VarInt>,
+    pub data: Vec<u64>,
+}
+
+impl PalettedContainer {
+    pub async fn write_to(&self, writer: &mut impl AsyncWriteOwnExt) -> io::Result<()> {
+        writer.write_u8(self.bits_per_entry).await?;
+
+        if self.bits_per_entry == 0 {
+            // Single value palette
+            for value in self.palette.iter() {
+                writer.write_var_int(*value).await?;
+                break;
+            }
+        } else if self.bits_per_entry <= 8 {
+            // Indirect palette
+            writer.write_var_int(self.palette.len() as VarInt).await?;
+
+            for value in self.palette.iter() {
+                writer.write_var_int(*value).await?;
+            }
+        } // else { direct palette (no data) }
+
+        writer.write_var_int(self.data.len() as VarInt).await?;
+        for value in self.data.iter() {
+            writer.write_u64(*value).await?;
+        }
+
+        Ok(())
+    }
 }

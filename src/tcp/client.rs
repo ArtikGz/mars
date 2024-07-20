@@ -1,6 +1,8 @@
+use crate::blocks::chunk::ChunkPos;
+use crate::blocks::world::get_world;
 use crate::tcp::packet::C2s;
 use crate::tcp::state::State;
-use crate::tcp::AsyncWriteOwnExt;
+use crate::tcp::{mapper, AsyncWriteOwnExt};
 use crate::{log, measure};
 use std::io::{self, Read, Write};
 use std::sync::Arc;
@@ -20,12 +22,12 @@ pub async fn handle_incoming(
 
     loop {
         let packet_len = reader.read_var_int().await?;
-        let mut reader = reader.take(packet_len as u64);
 
-        state = measure!(
-            "handle_incoming[handle_packet]()",
-            handle_packet(state, &mut reader, chan_writer).await?
-        );
+        if packet_len > 0 && reader.buffer().len() > 0 {
+            let mut reader = reader.take(packet_len as u64);
+
+            state = handle_packet(state, &mut reader, chan_writer).await?;
+        }
     }
 }
 
@@ -90,6 +92,26 @@ pub async fn handle_packet(
             S2c::send_to(Arc::new(response), chan_writer).await?;
 
             let response = S2c::LoginPlay {};
+            S2c::send_to(Arc::new(response), chan_writer).await?;
+
+            // Generate demo world
+            {
+                let radius = 7 / 2;
+                for x in -radius..radius {
+                    for z in -radius..radius {
+                        let mut world = get_world().lock().await;
+                        let chunk = world.get_chunk(&ChunkPos { x, z });
+                        let response = mapper::map_chunk_to_packet(chunk.unwrap().clone());
+
+                        S2c::send_to(Arc::new(response), chan_writer).await?;
+                    }
+                }
+            }
+
+            let response = S2c::SetDefaultSpawnPosition {
+                location: crate::Position { x: 0, y: 0, z: 0 },
+                angle: 0.0,
+            };
             S2c::send_to(Arc::new(response), chan_writer).await?;
 
             state = State::Play;

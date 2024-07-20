@@ -1,8 +1,10 @@
+use crate::log;
+
 use super::block;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ChunkSection {
-    pub blocks: [[[block::Block; 16]; 16]; 16] // [y][z][x]
+    pub blocks: [[[&'static block::Block; 16]; 16]; 16], // [y][z][x]
 }
 
 impl Default for ChunkSection {
@@ -11,17 +13,16 @@ impl Default for ChunkSection {
     }
 }
 
+pub fn generate_section(block: &'static block::Block) -> ChunkSection {
+    let mut blocks = [[[block::AIR; 16]; 16]; 16];
 
-pub fn generate_section(block: block::Block) -> ChunkSection {
-    let mut section = ChunkSection::default();
-
-    for y in 0..16  {
+    for y in 0..16 {
         for z in 0..16 {
             for x in 0..16 {
-                section.blocks[y][z][x] = block.clone();
+                blocks[y][z][x] = block;
             }
         }
     }
 
-    section
+    ChunkSection { blocks }
 }
