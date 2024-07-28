@@ -1,13 +1,14 @@
 use crate::tcp::client;
 use crate::tcp::event::Event;
 use crate::tcp::packet::S2c;
+use crate::tcp::state::State;
 use crate::{log, measure};
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::Mutex;
+use tokio::sync::{mpsc, RwLock};
 
 type ClientMap = Mutex<HashMap<u32, Sender<Arc<S2c>>>>;
 
@@ -76,11 +77,13 @@ async fn handle_connection(socket: TcpStream) {
         .await
         .insert(client_id, message_channel_sender.clone());
 
+    let state = Mutex::new(State::default());
+
     tokio::select!(
-        Err(e) = client::handle_incoming(&mut connection_reader, &message_channel_sender) => {
+        Err(e) = client::handle_incoming(&state, &mut connection_reader, &message_channel_sender) => {
             log::error!("Client crashed while handling incoming packet with an error: {}", e);
         },
-        Err(e) = client::handle_outgoing(&mut connection_writer, &mut message_channel_reader) => {
+        Err(e) = client::handle_outgoing(&state, &mut connection_writer, &mut message_channel_reader) => {
             log::error!("Client crashed while handling outgoing packets with an error: {}", e);
         }
     );

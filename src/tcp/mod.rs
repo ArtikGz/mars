@@ -1,7 +1,7 @@
 use crate::VarInt;
 use std::io;
 use std::io::{Read, Write};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub mod client;
 mod event;
@@ -11,24 +11,21 @@ pub mod server;
 mod state;
 mod utils;
 
-pub trait AsyncReadOwnExt: AsyncRead + Unpin {
+pub trait AsyncReadOwnExt: AsyncReadExt + Unpin {
     async fn read_var_int(&mut self) -> io::Result<VarInt> {
         let mut value = 0u32;
-        let mut position = 0;
-        let mut current_byte;
 
-        loop {
-            current_byte = self.read_u8().await?;
-            value |= ((current_byte & 0x7F) as u32) << position;
-
-            if current_byte & 0x80 == 0 {
-                break;
-            }
-            position += 7;
-
-            if position >= 32 {
+        let mut current_byte = 0x80u8;
+        let mut n = 0;
+        while current_byte & 0x80 != 0 {
+            if n > 5 {
                 return Err(io::Error::other("VarInt reading error"));
             }
+
+            current_byte = self.read_u8().await?;
+            value |= ((current_byte & 0x7F) as u32) << (7 * n);
+
+            n += 1;
         }
 
         Ok(value)
@@ -41,22 +38,6 @@ pub trait AsyncReadOwnExt: AsyncRead + Unpin {
         self.read_exact(&mut buffer).await?;
 
         Ok(String::from_utf8(buffer).unwrap())
-    }
-
-    async fn read_u16(&mut self) -> io::Result<u16> {
-        let mut buffer = [0; 2];
-
-        self.read_exact(&mut buffer).await?;
-
-        Ok(u16::from_be_bytes(buffer))
-    }
-
-    async fn read_u64(&mut self) -> io::Result<u64> {
-        let mut buffer = [0; 8];
-
-        self.read_exact(&mut buffer).await?;
-
-        Ok(u64::from_be_bytes(buffer))
     }
 
     async fn read_bool(&mut self) -> io::Result<bool> {

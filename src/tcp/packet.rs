@@ -168,6 +168,9 @@ pub enum S2c {
         location: Position,
         angle: f32,
     },
+    KeepAlive {
+        id: u64,
+    },
 }
 
 impl S2c {
@@ -228,6 +231,10 @@ impl S2c {
                 location.write_to(writer).await?;
 
                 writer.write_f32(*angle).await?;
+            }
+            S2c::KeepAlive { id } => {
+                writer.write_var_int(0x23).await?;
+                writer.write_u64(*id).await?;
             }
         }
 

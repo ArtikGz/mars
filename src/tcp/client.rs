@@ -4,20 +4,24 @@ use crate::tcp::packet::C2s;
 use crate::tcp::state::State;
 use crate::tcp::{mapper, AsyncWriteOwnExt};
 use crate::{log, measure};
+use std::borrow::Borrow;
 use std::io::{self, Read, Write};
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter, Take};
+use std::time::{Duration, SystemTime};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter, Take};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::select;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{Mutex, RwLock};
 
 use super::packet::{Players, S2c, Version};
 use super::{utils, AsyncReadOwnExt};
 
 pub async fn handle_incoming(
+    state: &Mutex<State>,
     reader: &mut OwnedReadHalf,
     chan_writer: &Sender<Arc<S2c>>,
 ) -> io::Result<()> {
-    let mut state = State::Shake;
     let reader = &mut BufReader::new(reader);
 
     loop {
@@ -25,48 +29,86 @@ pub async fn handle_incoming(
 
         if packet_len > 0 && reader.buffer().len() > 0 {
             let mut reader = reader.take(packet_len as u64);
+            let current_state = *state.lock().await;
 
-            state = handle_packet(state, &mut reader, chan_writer).await?;
+            match handle_packet(current_state, &mut reader, chan_writer).await? {
+                Some(new_state) => {
+                    *state.lock().await = new_state;
+                }
+                None => {}
+            };
+
+            if reader.limit() != 0 {
+                log::warn!("Packet wasn't fully readed!!!");
+                reader.consume(reader.limit() as usize);
+            }
         }
     }
 }
 
 pub async fn handle_outgoing(
+    state: &Mutex<State>,
     connection_writer: &mut OwnedWriteHalf,
     chan_reader: &mut Receiver<Arc<S2c>>,
 ) -> io::Result<()> {
-    let mut connection_writer = BufWriter::new(connection_writer);
+    let mut ticker = tokio::time::interval(Duration::from_secs(10));
 
-    while let Some(packet) = chan_reader.recv().await {
-        measure!("handle_outgoing[LOOP_ITER]()", {
-            let mut buffer = vec![];
-            packet.write_to(&mut buffer).await?;
+    'main: loop {
+        tokio::select! {
+            _ = ticker.tick() => {
 
-            log::debug!(
-                "OUTGOING_PACKET with {} bytes => {:?}",
-                buffer.len(),
-                packet
-            );
+                if *state.lock().await == State::Play {
+                    let now = SystemTime::now();
+                    let duration_since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).map_err(io::Error::other)?;
 
-            connection_writer.write_var_int(buffer.len() as u32).await?;
-            connection_writer.write_all(&*buffer).await?;
-
-            connection_writer.flush().await?;
-        });
+                    send_packet(connection_writer, Arc::new(S2c::KeepAlive{ id: duration_since_epoch.as_nanos() as u64 })).await?;
+                }
+            },
+            packet = chan_reader.recv() => {
+                match packet {
+                    Some(packet) => { send_packet(connection_writer, packet.clone()).await?; },
+                    _ => break 'main,
+                }
+            },
+        };
     }
 
     Ok(())
 }
 
+async fn send_packet(connection_writer: &mut OwnedWriteHalf, packet: Arc<S2c>) -> io::Result<()> {
+    let mut connection_writer = BufWriter::new(connection_writer);
+
+    measure!("handle_outgoing[LOOP_ITER]()", {
+        let mut buffer = vec![];
+        packet.write_to(&mut buffer).await?;
+
+        log::debug!(
+            "OUTGOING_PACKET with {} bytes => {:?}",
+            buffer.len(),
+            packet
+        );
+
+        connection_writer.write_var_int(buffer.len() as u32).await?;
+        connection_writer.write_all(&*buffer).await?;
+
+        connection_writer.flush().await?;
+    });
+
+    Ok(())
+}
+
 pub async fn handle_packet(
-    mut state: State,
+    state: State,
     data: &mut impl AsyncReadOwnExt,
     chan_writer: &Sender<Arc<S2c>>,
-) -> io::Result<State> {
+) -> io::Result<Option<State>> {
+    let mut result_state = None;
+
     log::debug!("Reading C2s packet, using state: {:?}", state);
     match C2s::read(state, data).await? {
         C2s::Handshake { next_state, .. } => {
-            state = State::from_int(next_state).map_err(io::Error::other)?
+            result_state = Some(State::from_int(next_state).map_err(io::Error::other)?)
         }
         C2s::StatusRequest => {
             let response = S2c::StatusResponse {
@@ -114,10 +156,10 @@ pub async fn handle_packet(
             };
             S2c::send_to(Arc::new(response), chan_writer).await?;
 
-            state = State::Play;
+            result_state = Some(State::Play);
         }
         C2s::Mock => {}
     };
 
-    Ok(state)
+    Ok(result_state)
 }

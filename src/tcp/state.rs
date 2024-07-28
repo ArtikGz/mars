@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum State {
     Shake,
     Status,
@@ -15,5 +15,11 @@ impl State {
             3 => Ok(Self::Play),
             _ => Err("Invalid state id."),
         }
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self::Shake
     }
 }
