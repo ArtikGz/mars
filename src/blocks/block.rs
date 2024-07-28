@@ -43,10 +43,15 @@ pub static DIORITE: &'static Block = &Block {
 
 pub static GRASS_BLOCK: &'static Block = &Block {
     id: 9,
-    name: "minecraft:grass_block"
+    name: "minecraft:grass_block",
 };
 
 pub static DIRT: &'static Block = &Block {
     id: 10,
-    name: "minecraft:dirt"
+    name: "minecraft:dirt",
+};
+
+pub static WATER: &'static Block = &Block {
+    id: 80,
+    name: "minecraft:water",
 };

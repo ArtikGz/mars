@@ -51,14 +51,15 @@ impl Chunk {
 }
 
 pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
-    let scale = 100.0;
+    let scale = 80.0;
     let mut perlin_values = vec![];
     for z in 0..16 {
         for x in 0..16 {
             let xpos = ((chunk_pos.x * 16 + x) as f64) / scale;
             let zpos = ((chunk_pos.z * 16 + z) as f64) / scale;
 
-            perlin_values.push(16.0 * 7.0 + terrain_generator.get_height_for(xpos, zpos) * 30.0);
+            perlin_values
+                .push(16.0 * 6.0 + 8.0 + terrain_generator.get_height_for(xpos, zpos) * 60.0);
         }
     }
 
@@ -79,6 +80,10 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
                             blocks[y][z][x] = block::DIRT;
                         } else if abs_y < perlin_value.floor() as usize {
                             blocks[y][z][x] = block::GRASS_BLOCK;
+                        }
+                    } else {
+                        if abs_y <= 64 + 37 {
+                            blocks[y][z][x] = block::WATER;
                         }
                     }
                 }
