@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.38.0", features = ["full"] }
 uuid = { version = "1.9.1", features = ["v3", "fast-rng"] }
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+lazy_static = "1.5.0"

@@ -151,7 +151,7 @@ pub async fn handle_packet(
             }
 
             let response = S2c::SetDefaultSpawnPosition {
-                location: crate::Position { x: 0, y: 0, z: 0 },
+                location: crate::Position { x: 0, y: 50, z: 0 },
                 angle: 0.0,
             };
             S2c::send_to(Arc::new(response), chan_writer).await?;

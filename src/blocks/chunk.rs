@@ -1,7 +1,14 @@
 use super::{
     block::{self, Block},
+    perlin::{self, PerlinNoiseGenerator},
     section,
 };
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref terrain_generator: PerlinNoiseGenerator = PerlinNoiseGenerator::new(312312890);
+}
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 pub struct ChunkPos {
@@ -44,17 +51,45 @@ impl Chunk {
 }
 
 pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
-    let block = if (chunk_pos.x + chunk_pos.z) % 2 == 0 {
-        block::STONE
-    } else {
-        block::DIORITE
-    };
+    let scale = 100.0;
+    let mut perlin_values = vec![];
+    for z in 0..16 {
+        for x in 0..16 {
+            let xpos = ((chunk_pos.x * 16 + x) as f64) / scale;
+            let zpos = ((chunk_pos.z * 16 + z) as f64) / scale;
 
-    let mut sections = vec![section::ChunkSection::default(); 24];
-    sections[0] = section::generate_section(block);
+            perlin_values.push(16.0 * 7.0 + terrain_generator.get_height_for(xpos, zpos) * 30.0);
+        }
+    }
+
+    let mut sections = vec![];
+    for section_y in 0..24 {
+        let mut blocks = [[[block::AIR; 16]; 16]; 16];
+
+        for y in 0..16 {
+            for z in 0..16 {
+                for x in 0..16 {
+                    let perlin_value = perlin_values[16 * z + x];
+
+                    let abs_y = section_y * 16 + y;
+                    if abs_y < perlin_value.floor() as usize {
+                        if abs_y < (perlin_value.floor() as usize) - 5 {
+                            blocks[y][z][x] = block::STONE;
+                        } else if abs_y < (perlin_value.floor() as usize) - 1 {
+                            blocks[y][z][x] = block::DIRT;
+                        } else if abs_y < perlin_value.floor() as usize {
+                            blocks[y][z][x] = block::GRASS_BLOCK;
+                        }
+                    }
+                }
+            }
+        }
+
+        sections.push(section::ChunkSection { blocks });
+    }
 
     Chunk {
         position: chunk_pos,
-        sections: sections,
+        sections,
     }
 }
