@@ -1,5 +1,5 @@
 use super::{
-    block::{self, Block},
+    block::{self, Block, BlockPos},
     perlin::{self, PerlinNoiseGenerator},
     section,
 };
@@ -7,7 +7,7 @@ use super::{
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref terrain_generator: PerlinNoiseGenerator = PerlinNoiseGenerator::new(312312890);
+    static ref terrain_generator: PerlinNoiseGenerator = PerlinNoiseGenerator::new();
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
@@ -58,8 +58,7 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
             let xpos = ((chunk_pos.x * 16 + x) as f64) / scale;
             let zpos = ((chunk_pos.z * 16 + z) as f64) / scale;
 
-            perlin_values
-                .push(16.0 * 6.0 + 8.0 + terrain_generator.get_height_for(xpos, zpos) * 60.0);
+            perlin_values.push(100.0 + terrain_generator.get_height_for(xpos, zpos));
         }
     }
 
@@ -74,9 +73,9 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
 
                     let abs_y = section_y * 16 + y;
                     if abs_y < perlin_value.floor() as usize {
-                        if abs_y < (perlin_value.floor() as usize) - 5 {
+                        if abs_y > 5 && abs_y < (perlin_value.floor() as usize) - 5 {
                             blocks[y][z][x] = block::STONE;
-                        } else if abs_y < (perlin_value.floor() as usize) - 1 {
+                        } else if abs_y > 1 && abs_y < (perlin_value.floor() as usize) - 1 {
                             blocks[y][z][x] = block::DIRT;
                         } else if abs_y < perlin_value.floor() as usize {
                             blocks[y][z][x] = block::GRASS_BLOCK;
