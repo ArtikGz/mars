@@ -171,6 +171,9 @@ pub enum S2c {
     KeepAlive {
         id: u64,
     },
+    SetRenderDistance {
+        distance: VarInt,
+    },
 }
 
 impl S2c {
@@ -235,6 +238,10 @@ impl S2c {
             S2c::KeepAlive { id } => {
                 writer.write_var_int(0x23).await?;
                 writer.write_u64(*id).await?;
+            },
+            S2c::SetRenderDistance { distance } => {
+                writer.write_var_int(0x4F).await?;
+                writer.write_var_int(*distance).await?;
             }
         }
 

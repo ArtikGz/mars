@@ -80,10 +80,6 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
                         } else if abs_y < perlin_value.floor() as usize {
                             blocks[y][z][x] = block::GRASS_BLOCK;
                         }
-                    } else {
-                        if abs_y <= 64 + 37 {
-                            blocks[y][z][x] = block::WATER;
-                        }
                     }
                 }
             }

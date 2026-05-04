@@ -138,7 +138,7 @@ pub async fn handle_packet(
 
             // Generate demo world
             {
-                let radius = 7 / 2;
+                let radius = 6;
                 for x in -radius..radius {
                     for z in -radius..radius {
                         let mut world = get_world().lock().await;
@@ -149,6 +149,9 @@ pub async fn handle_packet(
                     }
                 }
             }
+
+            let response = S2c::SetRenderDistance { distance: 12 };
+            S2c::send_to(Arc::new(response), chan_writer).await?;
 
             let response = S2c::SetDefaultSpawnPosition {
                 location: crate::Position { x: 0, y: 50, z: 0 },
