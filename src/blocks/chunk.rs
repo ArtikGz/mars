@@ -5,9 +5,10 @@ use super::{
 };
 
 use lazy_static::lazy_static;
+use crate::blocks::open_simplex::Noise2d;
 
 lazy_static! {
-    static ref terrain_generator: PerlinNoiseGenerator = PerlinNoiseGenerator::new();
+    static ref terrain_generator: Noise2d = Noise2d::new(3, 2f64, 20f64);
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
@@ -58,7 +59,7 @@ pub fn generate_chunk(chunk_pos: ChunkPos) -> Chunk {
             let xpos = ((chunk_pos.x * 16 + x) as f64) / scale;
             let zpos = ((chunk_pos.z * 16 + z) as f64) / scale;
 
-            perlin_values.push(100.0 + terrain_generator.get_height_for(xpos, zpos));
+            perlin_values.push(100.0 + terrain_generator.get(xpos, zpos));
         }
     }
 
